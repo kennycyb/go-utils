@@ -394,8 +394,13 @@ func TestTry_MultipleCallsWithError(t *testing.T) {
 
 func TestAwait_ConcurrentCalls(t *testing.T) {
 	ctx := context.Background()
+	
+	// Use channels to coordinate test execution
+	startSignal := make(chan struct{})
+	readyCount := make(chan struct{}, 10)
+	
 	fut := StartFuture(ctx, func(ctx context.Context) (string, error) {
-		time.Sleep(50 * time.Millisecond) // Give time for goroutines to start
+		<-startSignal // Wait for all goroutines to be ready
 		return "concurrent", nil
 	})
 
@@ -406,11 +411,20 @@ func TestAwait_ConcurrentCalls(t *testing.T) {
 
 	for i := 0; i < numGoroutines; i++ {
 		go func() {
+			readyCount <- struct{}{} // Signal that this goroutine is ready
 			val, err := fut.Await(ctx)
 			results <- val
 			errors <- err
 		}()
 	}
+
+	// Wait for all goroutines to be ready
+	for i := 0; i < numGoroutines; i++ {
+		<-readyCount
+	}
+	
+	// Now signal the future to complete
+	close(startSignal)
 
 	// Collect all results
 	for i := 0; i < numGoroutines; i++ {
