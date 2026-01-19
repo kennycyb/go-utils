@@ -171,6 +171,22 @@ func TestAll_Error(t *testing.T) {
 	}
 }
 
+func TestAll_EmptySlice(t *testing.T) {
+	ctx := context.Background()
+	var futures []*Future[string]
+
+	results, err := All(ctx, futures)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if results == nil {
+		t.Fatal("expected non-nil empty slice, got nil")
+	}
+	if len(results) != 0 {
+		t.Fatalf("expected empty slice, got length %d", len(results))
+	}
+}
+
 func TestAny_FirstCompletes(t *testing.T) {
 	ctx := context.Background()
 	futures := []*Future[string]{
@@ -241,6 +257,22 @@ func TestAny_Timeout(t *testing.T) {
 	val, err, idx := Any(timeoutCtx, futures)
 	if err != context.DeadlineExceeded {
 		t.Fatalf("expected DeadlineExceeded, got %v", err)
+	}
+	if val != "" {
+		t.Fatalf("expected empty string, got %v", val)
+	}
+	if idx != -1 {
+		t.Fatalf("expected index -1, got %d", idx)
+	}
+}
+
+func TestAny_EmptySlice(t *testing.T) {
+	ctx := context.Background()
+	var futures []*Future[string]
+
+	val, err, idx := Any(ctx, futures)
+	if err == nil {
+		t.Fatal("expected error for empty slice, got nil")
 	}
 	if val != "" {
 		t.Fatalf("expected empty string, got %v", val)

@@ -97,6 +97,11 @@ func All[T any](ctx context.Context, futures []*Future[T]) ([]T, error) {
 // Any returns the first completed future (its value, error, and index).
 // Cancels waiting for the rest once one finishes or ctx is done.
 func Any[T any](ctx context.Context, futures []*Future[T]) (T, error, int) {
+	var zero T
+	if len(futures) == 0 {
+		return zero, fmt.Errorf("no futures provided"), -1
+	}
+
 	type pair struct {
 		idx int
 		r   Result[T]
