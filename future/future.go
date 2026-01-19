@@ -70,6 +70,8 @@ func StartFuture[T any](ctx context.Context, fn func(context.Context) (T, error)
 // Multiple calls to Await return the same cached result.
 func (f *Future[T]) Await(ctx context.Context) (T, error) {
 	// Ensure the read goroutine is started
+	// Note: This goroutine will not leak because StartFuture guarantees that
+	// exactly one result is sent to f.ch and then the channel is closed.
 	f.once.Do(func() {
 		go func() {
 			f.result = <-f.ch
@@ -92,6 +94,8 @@ func (f *Future[T]) Await(ctx context.Context) (T, error) {
 // Multiple calls to Try return the same cached result once ready.
 func (f *Future[T]) Try() (value T, err error, ok bool) {
 	// Ensure the read goroutine is started
+	// Note: This goroutine will not leak because StartFuture guarantees that
+	// exactly one result is sent to f.ch and then the channel is closed.
 	f.once.Do(func() {
 		go func() {
 			f.result = <-f.ch
