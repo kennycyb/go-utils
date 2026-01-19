@@ -20,8 +20,10 @@ A lightweight Go utilities library providing helpful string manipulation functio
   - Non-blocking send to avoid goroutine leaks
 
 - **`Future[T].Await(ctx context.Context) (T, error)`** - Block until the Future completes or context is done
+  - Only the first successful call to `Await` on a given `Future` will receive the result; subsequent calls will block indefinitely because the underlying value has already been consumed
 
 - **`Future[T].Try() (T, error, bool)`** - Non-blocking check for completion
+  - Only the first successful call to `Try` on a given `Future` will receive the result; subsequent calls will return `(_, _, false)` because the underlying value has already been consumed
 
 - **`All[T any](ctx context.Context, futures []*Future[T]) ([]T, error)`** - Wait for all futures to complete
 
@@ -43,7 +45,14 @@ result := strutil.ToSnakeCase("HelloWorld") // "hello_world"
 ```
 
 ```go
-import "github.com/kennycyb/go-utils/future"
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+    "github.com/kennycyb/go-utils/future"
+)
 
 // Start a future
 fut := future.StartFuture(context.Background(), func(ctx context.Context) (string, error) {

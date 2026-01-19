@@ -3,6 +3,7 @@ package future
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"runtime/debug"
 )
 
@@ -95,36 +96,48 @@ func All[T any](ctx context.Context, futures []*Future[T]) ([]T, error) {
 }
 
 // Any returns the first completed future (its value, error, and index).
-// Cancels waiting for the rest once one finishes or ctx is done.
+// Uses reflect.Select to efficiently wait on multiple channels without spawning additional goroutines.
 func Any[T any](ctx context.Context, futures []*Future[T]) (T, error, int) {
-	type pair struct {
-		idx int
-		r   Result[T]
+	var zero T
+
+	if len(futures) == 0 {
+		return zero, nil, -1
 	}
-	out := make(chan pair, 1)
 
-	innerCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
+	// Build a list of cases for reflect.Select
+	// Case 0: ctx.Done()
+	// Case 1..N: futures[i].ch
+	cases := make([]reflect.SelectCase, len(futures)+1)
+	cases[0] = reflect.SelectCase{
+		Dir:  reflect.SelectRecv,
+		Chan: reflect.ValueOf(ctx.Done()),
+	}
 	for i, f := range futures {
-		i := i
-		f := f
-		go func() {
-			v, err := f.Await(innerCtx)
-			select {
-			case out <- pair{i, Result[T]{v, err}}:
-			case <-innerCtx.Done():
-			}
-		}()
+		cases[i+1] = reflect.SelectCase{
+			Dir:  reflect.SelectRecv,
+			Chan: reflect.ValueOf(f.ch),
+		}
 	}
 
-	select {
-	case <-ctx.Done():
-		var zero T
+	// Wait for the first case to complete
+	chosen, value, ok := reflect.Select(cases)
+
+	// Case 0: context was canceled
+	if chosen == 0 {
 		return zero, ctx.Err(), -1
-	case p := <-out:
-		// Stop other waiters as soon as one completes.
-		cancel()
-		return p.r.Value, p.r.Err, p.idx
 	}
+
+	// Case 1..N: one of the futures completed
+	idx := chosen - 1
+	if !ok {
+		// Channel was closed without sending a value (shouldn't happen with our implementation)
+		return zero, fmt.Errorf("future channel closed unexpectedly"), idx
+	}
+
+	// Extract the Result from the received value
+	result, ok := value.Interface().(Result[T])
+	if !ok {
+		return zero, fmt.Errorf("unexpected value type from future channel"), idx
+	}
+	return result.Value, result.Err, idx
 }
