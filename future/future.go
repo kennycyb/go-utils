@@ -69,7 +69,7 @@ func StartFuture[T any](ctx context.Context, fn func(context.Context) (T, error)
 // Await blocks until the Future completes or ctx is done.
 // Multiple calls to Await return the same cached result.
 func (f *Future[T]) Await(ctx context.Context) (T, error) {
-	// Start the read goroutine if not already started
+	// Ensure the read goroutine is started
 	f.once.Do(func() {
 		go func() {
 			f.result = <-f.ch
@@ -91,25 +91,15 @@ func (f *Future[T]) Await(ctx context.Context) (T, error) {
 // ok == false means the future is not ready yet.
 // Multiple calls to Try return the same cached result once ready.
 func (f *Future[T]) Try() (value T, err error, ok bool) {
-	// Check if result is already cached
-	select {
-	case <-f.done:
-		return f.result.Value, f.result.Err, true
-	default:
-	}
-
-	// Try to be the one to read from the channel
+	// Ensure the read goroutine is started
 	f.once.Do(func() {
-		select {
-		case r := <-f.ch:
-			f.result = r
+		go func() {
+			f.result = <-f.ch
 			close(f.done)
-		default:
-			// Channel not ready yet
-		}
+		}()
 	})
 
-	// If we successfully read, or if someone else did, check again
+	// Check if result is ready (non-blocking)
 	select {
 	case <-f.done:
 		return f.result.Value, f.result.Err, true
