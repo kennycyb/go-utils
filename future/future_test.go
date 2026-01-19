@@ -119,7 +119,8 @@ func TestTry_Ready(t *testing.T) {
 		return "ready", nil
 	})
 
-	time.Sleep(10 * time.Millisecond) // give time for completion
+	// Use Await to ensure the future completes
+	_, _ = fut.Await(ctx)
 
 	val, err, ok := fut.Try()
 	if !ok {
@@ -316,8 +317,8 @@ func TestTry_MultipleCalls(t *testing.T) {
 		return "result", nil
 	})
 
-	// Wait for the future to complete
-	time.Sleep(10 * time.Millisecond)
+	// Use Await to ensure the future completes
+	_, _ = fut.Await(ctx)
 
 	// First call should succeed
 	val1, err1, ok1 := fut.Try()
@@ -363,8 +364,8 @@ func TestTry_MultipleCallsWithError(t *testing.T) {
 		return "", expectedErr
 	})
 
-	// Wait for the future to complete
-	time.Sleep(10 * time.Millisecond)
+	// Use Await to ensure the future completes
+	_, _ = fut.Await(ctx)
 
 	// First call should return the error
 	val1, err1, ok1 := fut.Try()
@@ -430,8 +431,8 @@ func TestTry_ConcurrentCalls(t *testing.T) {
 		return "concurrent", nil
 	})
 
-	// Wait for the future to complete
-	time.Sleep(10 * time.Millisecond)
+	// Use Await to ensure the future completes
+	_, _ = fut.Await(ctx)
 
 	// Start multiple goroutines that all call Try
 	const numGoroutines = 10
