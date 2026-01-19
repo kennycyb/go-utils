@@ -45,7 +45,14 @@ result := strutil.ToSnakeCase("HelloWorld") // "hello_world"
 ```
 
 ```go
-import "github.com/yourusername/go-utils/future"
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+    "github.com/yourusername/go-utils/future"
+)
 
 // Start a future
 fut := future.StartFuture(context.Background(), func(ctx context.Context) (string, error) {
