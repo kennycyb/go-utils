@@ -99,7 +99,7 @@ func All[T any](ctx context.Context, futures []*Future[T]) ([]T, error) {
 func Any[T any](ctx context.Context, futures []*Future[T]) (T, error, int) {
 	var zero T
 	if len(futures) == 0 {
-		return zero, fmt.Errorf("no futures provided"), -1
+		return zero, fmt.Errorf("Any: no futures provided"), -1
 	}
 
 	type pair struct {
