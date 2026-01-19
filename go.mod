@@ -1,3 +1,3 @@
-module github.com/yourusername/go-utils
+module github.com/example/go-utils
 
 go 1.21
