@@ -135,6 +135,9 @@ func Any[T any](ctx context.Context, futures []*Future[T]) (T, error, int) {
 	}
 
 	// Extract the Result from the received value
-	result := value.Interface().(Result[T])
+	result, ok := value.Interface().(Result[T])
+	if !ok {
+		return zero, fmt.Errorf("unexpected value type from future channel"), idx
+	}
 	return result.Value, result.Err, idx
 }
