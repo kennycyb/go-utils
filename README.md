@@ -30,7 +30,7 @@ A lightweight Go utilities library providing helpful string manipulation functio
 ## Usage
 
 ```go
-import "github.com/yourusername/go-utils/strutil"
+import "github.com/kennycyb/go-utils/strutil"
 
 // Check if string is empty
 empty := strutil.IsEmpty(nil) // true
@@ -43,7 +43,7 @@ result := strutil.ToSnakeCase("HelloWorld") // "hello_world"
 ```
 
 ```go
-import "github.com/yourusername/go-utils/future"
+import "github.com/kennycyb/go-utils/future"
 
 // Start a future
 fut := future.StartFuture(context.Background(), func(ctx context.Context) (string, error) {
@@ -62,7 +62,7 @@ fmt.Println(result) // "done"
 ## Installation
 
 ```bash
-go get github.com/yourusername/go-utils
+go get github.com/kennycyb/go-utils
 ```
 
 ## License
