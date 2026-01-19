@@ -249,3 +249,218 @@ func TestAny_Timeout(t *testing.T) {
 		t.Fatalf("expected index -1, got %d", idx)
 	}
 }
+
+func TestAwait_MultipleCalls(t *testing.T) {
+	ctx := context.Background()
+	fut := StartFuture(ctx, func(ctx context.Context) (string, error) {
+		return "result", nil
+	})
+
+	// First call should work
+	val1, err1 := fut.Await(ctx)
+	if err1 != nil {
+		t.Fatalf("first Await: expected no error, got %v", err1)
+	}
+	if val1 != "result" {
+		t.Fatalf("first Await: expected 'result', got %v", val1)
+	}
+
+	// Second call should return the same result
+	val2, err2 := fut.Await(ctx)
+	if err2 != nil {
+		t.Fatalf("second Await: expected no error, got %v", err2)
+	}
+	if val2 != "result" {
+		t.Fatalf("second Await: expected 'result', got %v", val2)
+	}
+
+	// Third call should also work
+	val3, err3 := fut.Await(ctx)
+	if err3 != nil {
+		t.Fatalf("third Await: expected no error, got %v", err3)
+	}
+	if val3 != "result" {
+		t.Fatalf("third Await: expected 'result', got %v", val3)
+	}
+}
+
+func TestAwait_MultipleCallsWithError(t *testing.T) {
+	ctx := context.Background()
+	expectedErr := errors.New("test error")
+	fut := StartFuture(ctx, func(ctx context.Context) (string, error) {
+		return "", expectedErr
+	})
+
+	// First call should return the error
+	val1, err1 := fut.Await(ctx)
+	if err1 != expectedErr {
+		t.Fatalf("first Await: expected error %v, got %v", expectedErr, err1)
+	}
+	if val1 != "" {
+		t.Fatalf("first Await: expected empty string, got %v", val1)
+	}
+
+	// Second call should return the same error
+	val2, err2 := fut.Await(ctx)
+	if err2 != expectedErr {
+		t.Fatalf("second Await: expected error %v, got %v", expectedErr, err2)
+	}
+	if val2 != "" {
+		t.Fatalf("second Await: expected empty string, got %v", val2)
+	}
+}
+
+func TestTry_MultipleCalls(t *testing.T) {
+	ctx := context.Background()
+	fut := StartFuture(ctx, func(ctx context.Context) (string, error) {
+		return "result", nil
+	})
+
+	// Wait for the future to complete
+	time.Sleep(10 * time.Millisecond)
+
+	// First call should succeed
+	val1, err1, ok1 := fut.Try()
+	if !ok1 {
+		t.Fatal("first Try: expected ready")
+	}
+	if err1 != nil {
+		t.Fatalf("first Try: expected no error, got %v", err1)
+	}
+	if val1 != "result" {
+		t.Fatalf("first Try: expected 'result', got %v", val1)
+	}
+
+	// Second call should return the same result
+	val2, err2, ok2 := fut.Try()
+	if !ok2 {
+		t.Fatal("second Try: expected ready")
+	}
+	if err2 != nil {
+		t.Fatalf("second Try: expected no error, got %v", err2)
+	}
+	if val2 != "result" {
+		t.Fatalf("second Try: expected 'result', got %v", val2)
+	}
+
+	// Third call should also work
+	val3, err3, ok3 := fut.Try()
+	if !ok3 {
+		t.Fatal("third Try: expected ready")
+	}
+	if err3 != nil {
+		t.Fatalf("third Try: expected no error, got %v", err3)
+	}
+	if val3 != "result" {
+		t.Fatalf("third Try: expected 'result', got %v", val3)
+	}
+}
+
+func TestTry_MultipleCallsWithError(t *testing.T) {
+	ctx := context.Background()
+	expectedErr := errors.New("test error")
+	fut := StartFuture(ctx, func(ctx context.Context) (string, error) {
+		return "", expectedErr
+	})
+
+	// Wait for the future to complete
+	time.Sleep(10 * time.Millisecond)
+
+	// First call should return the error
+	val1, err1, ok1 := fut.Try()
+	if !ok1 {
+		t.Fatal("first Try: expected ready")
+	}
+	if err1 != expectedErr {
+		t.Fatalf("first Try: expected error %v, got %v", expectedErr, err1)
+	}
+	if val1 != "" {
+		t.Fatalf("first Try: expected empty string, got %v", val1)
+	}
+
+	// Second call should return the same error
+	val2, err2, ok2 := fut.Try()
+	if !ok2 {
+		t.Fatal("second Try: expected ready")
+	}
+	if err2 != expectedErr {
+		t.Fatalf("second Try: expected error %v, got %v", expectedErr, err2)
+	}
+	if val2 != "" {
+		t.Fatalf("second Try: expected empty string, got %v", val2)
+	}
+}
+
+func TestAwait_ConcurrentCalls(t *testing.T) {
+	ctx := context.Background()
+	fut := StartFuture(ctx, func(ctx context.Context) (string, error) {
+		time.Sleep(50 * time.Millisecond) // Give time for goroutines to start
+		return "concurrent", nil
+	})
+
+	// Start multiple goroutines that all call Await
+	const numGoroutines = 10
+	results := make(chan string, numGoroutines)
+	errors := make(chan error, numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			val, err := fut.Await(ctx)
+			results <- val
+			errors <- err
+		}()
+	}
+
+	// Collect all results
+	for i := 0; i < numGoroutines; i++ {
+		val := <-results
+		err := <-errors
+		if err != nil {
+			t.Fatalf("goroutine %d: expected no error, got %v", i, err)
+		}
+		if val != "concurrent" {
+			t.Fatalf("goroutine %d: expected 'concurrent', got %v", i, val)
+		}
+	}
+}
+
+func TestTry_ConcurrentCalls(t *testing.T) {
+	ctx := context.Background()
+	fut := StartFuture(ctx, func(ctx context.Context) (string, error) {
+		return "concurrent", nil
+	})
+
+	// Wait for the future to complete
+	time.Sleep(10 * time.Millisecond)
+
+	// Start multiple goroutines that all call Try
+	const numGoroutines = 10
+	results := make(chan string, numGoroutines)
+	errors := make(chan error, numGoroutines)
+	oks := make(chan bool, numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			val, err, ok := fut.Try()
+			results <- val
+			errors <- err
+			oks <- ok
+		}()
+	}
+
+	// Collect all results
+	for i := 0; i < numGoroutines; i++ {
+		val := <-results
+		err := <-errors
+		ok := <-oks
+		if !ok {
+			t.Fatalf("goroutine %d: expected ready", i)
+		}
+		if err != nil {
+			t.Fatalf("goroutine %d: expected no error, got %v", i, err)
+		}
+		if val != "concurrent" {
+			t.Fatalf("goroutine %d: expected 'concurrent', got %v", i, val)
+		}
+	}
+}

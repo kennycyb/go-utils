@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"sync"
 )
 
 // Result wraps a value or an error.
@@ -13,8 +14,12 @@ type Result[T any] struct {
 }
 
 // Future represents a one-shot computation that will produce exactly one Result.
+// The result is cached after the first read, allowing multiple calls to Await and Try.
 type Future[T any] struct {
-	ch <-chan Result[T]
+	ch     <-chan Result[T]
+	once   sync.Once
+	done   chan struct{}
+	result Result[T] // cached result after first read
 }
 
 // StartFuture launches fn in a goroutine and returns a Future.
@@ -55,29 +60,58 @@ func StartFuture[T any](ctx context.Context, fn func(context.Context) (T, error)
 		out = Result[T]{Value: v, Err: err}
 	}()
 
-	return &Future[T]{ch: ch}
+	return &Future[T]{
+		ch:   ch,
+		done: make(chan struct{}),
+	}
 }
 
 // Await blocks until the Future completes or ctx is done.
+// Multiple calls to Await return the same cached result.
 func (f *Future[T]) Await(ctx context.Context) (T, error) {
-	var zero T
+	// Ensure we only read from the channel once
+	f.once.Do(func() {
+		f.result = <-f.ch
+		close(f.done)
+	})
+
+	// Wait for the result to be ready or context to be done
 	select {
-	case r := <-f.ch:
-		return r.Value, r.Err
+	case <-f.done:
+		return f.result.Value, f.result.Err
 	case <-ctx.Done():
+		// Even if ctx is done, we should still complete reading if we started
+		// This ensures the result is cached for future calls
+		<-f.done
+		var zero T
 		return zero, ctx.Err()
 	}
 }
 
 // Try performs a non-blocking check for completion.
 // ok == false means the future is not ready yet.
+// Multiple calls to Try return the same cached result once ready.
 func (f *Future[T]) Try() (value T, err error, ok bool) {
-	var zero T
+	// Try to read from the channel without blocking
 	select {
-	case r := <-f.ch:
-		return r.Value, r.Err, true
+	case <-f.done:
+		// Result is already cached
+		return f.result.Value, f.result.Err, true
 	default:
-		return zero, nil, false
+		// Try to read from the channel
+		select {
+		case r := <-f.ch:
+			// We got the result, cache it
+			f.once.Do(func() {
+				f.result = r
+				close(f.done)
+			})
+			return f.result.Value, f.result.Err, true
+		default:
+			// Not ready yet
+			var zero T
+			return zero, nil, false
+		}
 	}
 }
 
