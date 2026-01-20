@@ -119,17 +119,22 @@ func TestTry_Ready(t *testing.T) {
 		return "ready", nil
 	})
 
-	time.Sleep(10 * time.Millisecond) // give time for completion
-
-	val, err, ok := fut.Try()
-	if !ok {
-		t.Fatal("expected ready")
-	}
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if val != "ready" {
-		t.Fatalf("expected 'ready', got %v", val)
+	deadline := time.Now().Add(1 * time.Second)
+	for {
+		val, err, ok := fut.Try()
+		if ok {
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			if val != "ready" {
+				t.Fatalf("expected 'ready', got %v", val)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("expected ready within timeout")
+		}
+		time.Sleep(1 * time.Millisecond)
 	}
 }
 
