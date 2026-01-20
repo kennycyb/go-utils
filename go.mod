@@ -1,3 +1,3 @@
-module github.com/example/go-utils
+module github.com/kennycyb/go-utils
 
 go 1.21

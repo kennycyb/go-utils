@@ -21,8 +21,10 @@ A lightweight Go utilities library providing helpful string manipulation functio
 
 - **`Future[T].Await(ctx context.Context) (T, error)`** - Block until the Future completes or context is done
   - Only the first successful call to `Await` on a given `Future` will receive the result; subsequent calls will block indefinitely because the underlying value has already been consumed
+  - Only the first successful call to `Await` on a given `Future` will receive the result; subsequent calls will block indefinitely because the underlying value has already been consumed
 
 - **`Future[T].Try() (T, error, bool)`** - Non-blocking check for completion
+  - Only the first successful call to `Try` on a given `Future` will receive the result; subsequent calls will return `(_, _, false)` because the underlying value has already been consumed
   - Only the first successful call to `Try` on a given `Future` will receive the result; subsequent calls will return `(_, _, false)` because the underlying value has already been consumed
 
 - **`All[T any](ctx context.Context, futures []*Future[T]) ([]T, error)`** - Wait for all futures to complete
@@ -32,7 +34,7 @@ A lightweight Go utilities library providing helpful string manipulation functio
 ## Usage
 
 ```go
-import "github.com/yourusername/go-utils/strutil"
+import "github.com/kennycyb/go-utils/strutil"
 
 // Check if string is empty
 empty := strutil.IsEmpty(nil) // true
@@ -51,7 +53,7 @@ import (
     "log"
     "time"
 
-    "github.com/yourusername/go-utils/future"
+    "github.com/kennycyb/go-utils/future"
 )
 
 // Start a future
@@ -71,7 +73,7 @@ fmt.Println(result) // "done"
 ## Installation
 
 ```bash
-go get github.com/yourusername/go-utils
+go get github.com/kennycyb/go-utils
 ```
 
 ## License
